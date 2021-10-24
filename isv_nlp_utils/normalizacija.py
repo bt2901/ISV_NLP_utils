@@ -30,7 +30,8 @@ def convert2MSPlus(thestring):
     thestring = unicodedata.normalize(
         'NFKC',
         thestring
-    ).lower()
+    )
+    # TODO: do the same for upper case
     thestring = (
         thestring
         .replace("ň", "ń").replace("ĺ", "ľ")
@@ -47,14 +48,14 @@ def fix_silmeth(word):
 
 
 def fix_esperanto(word):
-    return word.replace('cx', 'c').replace('sx', 's').replace('zx', 'z').replace("ex", "ě")
+    return word.replace('cx', 'č').replace('sx', 'š').replace('zx', 'ž').replace("ex", "ě")
 
 
 def fix_polish(word):
     return (
         word
         # ASCII-replacements for ISV symbols
-        .replace('cz', 'č').replace('sz', 'š').replace('sz', 'ž').replace("ie", "ě")
+        .replace('cz', 'č').replace('sz', 'š').replace('zs', 'ž').replace("ie", "ě")
         # letters that are available on the polish keyboard and could be used together with the replacements
         .replace('ż', 'ž').replace("ć", "č").replace("ę", "e")
     )
@@ -69,6 +70,7 @@ def fix_russian(word):
     return (
         word
         .replace("нь", "њ").replace("ль", "љ")
+        .replace("я", "йа").replace("ю", "йу")
         .replace("ь", "j").replace("й", "j").replace("j", "ј").replace("ѣ", "є")
     )
 
@@ -106,11 +108,17 @@ def normalize_and_simple_spellcheck(text, abecedas):
     fixed_text = ""
     for abeceda, morph in abecedas.items():
         for fixer_name, fixer_func in fix_text.items():
+            # TODO: add some sort of sanity check here to skip some
+            # options that are irrelevant because of alphabet mismatch:
+            # if not set(ALPHABET_LETTERS[abeceda]) & set(text):
+            #    continue
             unknown_words = []
             num_tokens = 0
             score = 0
             changed_text = fixer_func(text)
-            for token in iterate_over_text(changed_text):
+            finalized_text = list(changed_text)
+            for delim in iterate_over_text(changed_text, extended=True):
+                token = delim.group()
                 razbor = morph.parse(token)
                 diacr_form = razbor[0].word if razbor else ""
                 is_known = 0
@@ -121,10 +129,13 @@ def normalize_and_simple_spellcheck(text, abecedas):
                     is_known = 0.5
                 else:
                     unknown_words.append(token)
+                if "" != diacr_form != token:
+                    finalized_text[delim.start():delim.end()] = diacr_form
+
                 score += is_known
             if score > best_orthography[1]:
                 best_orthography = (abeceda + "|" + fixer_name, score, list(unknown_words))
-                fixed_text = changed_text
+                fixed_text = ''.join(finalized_text)
 
         mean_score = best_orthography[1]/num_tokens
     return best_orthography, fixed_text, mean_score

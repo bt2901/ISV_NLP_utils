@@ -22,16 +22,17 @@ ETM_DIACR_SUBS = {
     # hack with dʒ = "đ"
 }
 
-DEFAULT_UNITS = [
-    [
-        pymorphy2.units.DictionaryAnalyzer()
-    ],
-    pymorphy2.units.KnownPrefixAnalyzer(known_prefixes=VERB_PREFIXES),
-    [
-        pymorphy2.units.UnknownPrefixAnalyzer(),
-        pymorphy2.units.KnownSuffixAnalyzer()
-    ]
-]
+ALPHABET_LETTERS = {
+    'lat': "abcdefghijklmnoprstuvyzěčšž",
+    'cyr': "абвгдежзиклмнопрстуфхцчшыєјљњ",
+    'etm': "abcdefghijklmnoprstuvyzåćčďėęěľńŕśšťųźžȯʒ",
+}
+
+ADDITIONAL_ETM_LETTERS = "åćďėęľńŕśťųźȯʒ"
+DOWNGRADED_ETM_LETTERS = "ačdeelnrstuzož"
+
+downgrade_diacritics = str.maketrans(ADDITIONAL_ETM_LETTERS, DOWNGRADED_ETM_LETTERS)
+
 
 letters = "a-zа-яёěčžšåųćęđŕľńĺťďśźʒėȯђјљєњ"
 alphanum = f"[0-9{letters}_]"
@@ -47,15 +48,34 @@ DISCORD_USERNAME_REGEX = re.compile(
 )
 
 
-def iterate_over_text(paragraph):
+# from collections import namedtuple
+# _dummy = namedtuple('mock', 'dictionary')
+# pymorphy2.units.DictionaryAnalyzer(_dummy(None))
+
+DEFAULT_UNITS = [
+    [
+        pymorphy2.units.DictionaryAnalyzer()
+    ],
+    pymorphy2.units.KnownPrefixAnalyzer(known_prefixes=VERB_PREFIXES),
+    [
+        pymorphy2.units.UnknownPrefixAnalyzer(),
+        pymorphy2.units.KnownSuffixAnalyzer()
+    ]
+]
+
+def iterate_over_text(paragraph, extended=False):
     delimiters = BASE_ISV_TOKEN_REGEX.finditer(paragraph)
     for delim in delimiters:
         if any(c.isalpha() for c in delim.group()):
             token = delim.group()
-            yield token
+            if extended:
+                yield delim
+            else:
+                yield token
 
 
 def create_analyzers_for_every_alphabet(path="C:\\dev\\pymorphy2-dicts\\"):
+
 
     std_morph = pymorphy2.MorphAnalyzer(
         path+"out_isv_lat",
