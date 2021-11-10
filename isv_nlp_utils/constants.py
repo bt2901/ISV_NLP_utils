@@ -14,12 +14,17 @@ CYR_LETTER_SUBS = {
 SIMPLE_DIACR_SUBS = {
     'e': 'ě', 'c': 'č', 'z': 'ž', 's': 'š',
 }
-# NOTE: pymorphy2 cannot work with several changes, i.e. {'e': 'ě', 'e': 'ę'}
+# NOTE: pymorphy2 cannot work with several changes, i.e. {'e': 'ě', 'e': 'ę', 'e': 'ė'}
+# TODO: probably I can fix it here:
+# https://github.com/pytries/DAWG-Python/blob/master/dawg_python/dawgs.py#L44
+# so it could be {'e': ['ě', 'ę', 'ė']}
 ETM_DIACR_SUBS = {
-    'a': 'å', 'u': 'ų', 'č': 'ć', 'e': 'ę',
+    'a': 'å', 'u': 'ų', 'e': 'ę', 'č': 'ć',
+    'o': 'ȯ',  # 'e': 'ė' :-(
     'n': 'ń', 'r': 'ŕ', 'l': 'ľ',
-    'ž': 'ʒ'  # đ ne funguje
+    'd': 'ď', 's': 'ś', 't': 'ť', 'z': 'ź',
     # hack with dʒ = "đ"
+    'ž': 'ʒ'  # đ ne funguje
 }
 
 ALPHABET_LETTERS = {
@@ -63,6 +68,7 @@ DEFAULT_UNITS = [
     ]
 ]
 
+
 def iterate_over_text(paragraph, extended=False):
     delimiters = BASE_ISV_TOKEN_REGEX.finditer(paragraph)
     for delim in delimiters:
@@ -75,7 +81,6 @@ def iterate_over_text(paragraph, extended=False):
 
 
 def create_analyzers_for_every_alphabet(path="C:\\dev\\pymorphy2-dicts\\"):
-
 
     std_morph = pymorphy2.MorphAnalyzer(
         path+"out_isv_lat",
