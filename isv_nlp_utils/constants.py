@@ -14,18 +14,25 @@ CYR_LETTER_SUBS = {
 SIMPLE_DIACR_SUBS = {
     'e': 'ě', 'c': 'č', 'z': 'ž', 's': 'š',
 }
-# NOTE: pymorphy2 cannot work with several changes, i.e. {'e': 'ě', 'e': 'ę', 'e': 'ė'}
-# TODO: probably I can fix it here:
-# https://github.com/pytries/DAWG-Python/blob/master/dawg_python/dawgs.py#L44
-# so it could be {'e': ['ě', 'ę', 'ė']}
-ETM_DIACR_SUBS = {
-    'a': 'å', 'u': 'ų', 'e': 'ę', 'č': 'ć',
-    'o': 'ȯ',  # 'e': 'ė' :-(
-    'n': 'ń', 'r': 'ŕ', 'l': 'ľ',
-    'd': 'ď', 's': 'ś', 't': 'ť', 'z': 'ź',
-    # hack with dʒ = "đ"
-    'ž': 'ʒ'  # đ ne funguje
+
+TOTAL_DIACR_SUBS = {
+        'a': 'å', 'u': 'ų', 'e': ['ě', 'ę', 'ė'], 'č': 'ć', 'c': ['č', 'ć'],
+        'o': 'ȯ',
+        'n': 'ń', 'r': 'ŕ', 'l': 'ľ',
+        'd': 'ď', 's': ['ś', 'š'], 't': 'ť', 'z': ['ź', 'ž'],
+        # hack with dʒ = "đ"
+        'ž': 'ʒ'  # đ ne funguje
 }
+
+ETM_DIACR_SUBS = {
+        'a': 'å', 'u': 'ų', 'e': ['ě', 'ę', 'ė'], 'č': 'ć',
+        'o': 'ȯ', 
+        'n': 'ń', 'r': 'ŕ', 'l': 'ľ',
+        'd': 'ď', 's': 'ś', 't': 'ť', 'z': 'ź',
+        # hack with dʒ = "đ"
+        'ž': 'ʒ'  # đ ne funguje
+}
+
 
 ALPHABET_LETTERS = {
     'lat': "abcdefghijklmnoprstuvyzěčšž",
