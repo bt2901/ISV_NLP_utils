@@ -1,2 +1,3 @@
 pymorphy2>=0.9
 git+https://github.com/bt2901/DAWG-Python
+regex

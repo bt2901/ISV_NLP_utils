@@ -1,4 +1,4 @@
-from pyparsing import Group, Opt, Literal, Word, sgl_quoted_string, Suppress
+from pyparsing import Group, Opt, Literal, Word, quoted_string, Suppress
 import pyparsing
 
 
@@ -14,10 +14,10 @@ def build_parser():
         L("'").suppress() + 
         Opt(Word(chars), default="") + 
         L("'").suppress() + 
-        L(",").suppress()
+        Opt(L(",")).suppress()
     )
 
-    MAP_DESC = (
+    MAP_DESC = Group(
         S("{") + 
         pyparsing.OneOrMore(
             pyparsing.Group(DICT_ENTRY)
@@ -26,19 +26,25 @@ def build_parser():
     )
 
     RULE_CASE =  L("(r) => r.lowerCase()") | L("(r) => r.restoreCase()")
-    RULE_REGEX = S("(r)") + S("=>") + "r.regexp" + S("(/") + ... + S("/") + S(",") + S('[') + Group(pyparsing.OneOrMore(sgl_quoted_string + Opt(",").suppress())) + S(']') + S(")")
+    RULE_REGEX = S("(r)") + S("=>") + "r.regexp" + S("(/") + ... + S("/") + S(",") + S('[') + Group(pyparsing.OneOrMore(quoted_string + Opt(",").suppress())) + S(']') + S(")")
     RULE_MAP =   S("(r)") + S("=>") + "r.map" + S("(") + MAP_DESC + S(")")
-    CONSTRAINT = S("(p)") + S("=>") + S("p.") + Group(Word(chars) + S("(") + ... + S(")")) + S(",")
+    ONE_PREDICATE = (S("p.") + Group(Word(chars) + S("(") + ... + S(")"))) | S("p")
 
-    rule_content = sgl_quoted_string + S(",") + (RULE_REGEX | RULE_MAP | RULE_CASE) + Opt(",").suppress() + Opt(CONSTRAINT) + Opt(",").suppress()
+    CONSTRAINT = S("(p)") + S("=>") + (
+        ONE_PREDICATE + Opt(pyparsing.OneOrMore(
+            S(".and") + S("(") + ONE_PREDICATE + S(")")
+        ))
+    ) + S(",")
+
+    rule_content = quoted_string + S(",") + (RULE_REGEX | RULE_MAP | RULE_CASE) + Opt(",").suppress() + Opt(Group(CONSTRAINT)) + Opt(",").suppress()
 
     rule_expr = pyparsing.nestedExpr( '(', ')', content=rule_content)
 
 
     element = (
         Group(Suppress(".rule") + S("(") + rule_content + S(")"))("rule") | 
-        Group(Literal(".named") + S("(") + sgl_quoted_string  + S(")"))("named") | 
-        Group(Literal(".section") + S("(") + sgl_quoted_string  + S(")"))("section")
+        Group(Literal(".named") + S("(") + quoted_string  + S(")"))("named") | 
+        Group(Literal(".section") + S("(") + quoted_string  + S(")"))("section")
     )
 
     parser = S("multireplacer") + pyparsing.ZeroOrMore(element) + L(".build();")
@@ -48,7 +54,7 @@ def build_parser():
 
 def parse_multireplacer_rules(file_path, parser=None):
     with open(file_path, "r", encoding="utf8") as f:
-        RULES = f.read()
+        RULES = f.read().replace("t́", "ť").replace("d́", "ď")
     
     for i, line in enumerate(RULES.split("\n")):
         if "multireplacer" in line and "import" not in line:
