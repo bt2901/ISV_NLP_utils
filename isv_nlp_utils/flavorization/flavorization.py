@@ -21,7 +21,7 @@ if __name__ == "__main__":
     slovnik = get_slovnik()
     slovnik = slovnik['words']
 
-    morph = constants.create_analyzers_for_every_alphabet(r"C:\dev\ISV_data_gathering\\")['etm']
+    morph = constants.create_etm_analyzer(r"C:\dev\ISV_data_gathering\\")
 
     for LANG in [os.path.basename(l).partition(".")[0] for l in glob.glob(r"C:\dev\razumlivost\src\flavorizers\*.ts")]:
 
@@ -31,18 +31,21 @@ if __name__ == "__main__":
         rules_struct = parse_multireplacer_rules(
             r"C:\dev\razumlivost\src\flavorizers\{}.ts".format(LANG)
         )
-        tokens = compute_annotated_tokens(Src, morph, slovnik)
 
         try:
             with open(r"C:\dev\razumlivost\src\flavorizers\morpho_{}.txt".format(LANG), "r", encoding="utf8") as f:
                 flavor_rules = literal_eval(f.read())
             # TODO: store `ju` in file
             ju = True
-            morphological_flavorise(tokens, morph, flavor_rules, ju)
         except FileNotFoundError:
             print("no morphology for " + LANG)
+            flavor_rules = None
+            ju = None
             pass
 
+        tokens = compute_annotated_tokens(Src, morph, slovnik)
+        if flavor_rules:
+            morphological_flavorise(tokens, morph, flavor_rules, ju)
         res = process_multireplacing(tokens, rules_struct)
         print(res)
         # print(tokens)

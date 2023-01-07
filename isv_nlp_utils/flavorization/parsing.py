@@ -34,7 +34,7 @@ def build_parser():
         ONE_PREDICATE + Opt(pyparsing.OneOrMore(
             S(".and") + S("(") + ONE_PREDICATE + S(")")
         ))
-    ) + S(",")
+    ) + Opt(",").suppress()
 
     rule_content = quoted_string + S(",") + (RULE_REGEX | RULE_MAP | RULE_CASE) + Opt(",").suppress() + Opt(Group(CONSTRAINT)) + Opt(",").suppress()
 

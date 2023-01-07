@@ -1,23 +1,30 @@
 import regex
+from copy import deepcopy
 
+from ..constants import inflect_carefully
 
-def morphological_flavorise(tokens_data, morph, flavor_rules, ju):
+def morphological_flavorise(tokens_data, morph, flavor_rules, debug_indices={}):
+    tokens_data = deepcopy(tokens_data)
     for i, token in enumerate(tokens_data):
         original = token.text[0]
-        flavorised = flavorise(token.text[0].lower(), token.POS, morph, flavor_rules, ju=ju)
-        if original != flavorised:
+        word = token.text[0].lower()
+        if word in flavor_rules["SPECIAL_CASES"]:
+            flavorised = flavor_rules["SPECIAL_CASES"][word]
+            token.is_processed = True
+        else:
+            flavorised = flavorise(token.text[0].lower(), token.POS, morph, flavor_rules)
+        token.text[0] = flavorised
+        if original != flavorised and i in debug_indices:
             print(original, flavorised)
-            token.text[0] = flavorised
             # print(token)
+    return tokens_data
 
 
-def flavorise(word, golden_pos_tag, isv_morph, flavor, ju):
-    if word in flavor["SPECIAL_CASES"]:
-        return flavor["SPECIAL_CASES"][word]
+def flavorise(word, golden_pos_tag, isv_morph, flavor):
     word = word.replace("đ", "dʒ")
-    return __flavorise(word, golden_pos_tag, isv_morph, flavor, ju).replace("dʒ", "đ")
+    return __flavorise(word, golden_pos_tag, isv_morph, flavor).replace("dʒ", "đ")
 
-def __flavorise(word, golden_pos_tag, isv_morph, flavor, ju):
+def __flavorise(word, golden_pos_tag, isv_morph, flavor):
     if golden_pos_tag == "PNCT":
         return word
     if golden_pos_tag == "ADVB":
@@ -34,11 +41,21 @@ def __flavorise(word, golden_pos_tag, isv_morph, flavor, ju):
     if not variants:
         return word
 
-    if ju:
+    verb_ju = flavor['INFLECTIONS'].get('verb-ju', None)
+    if verb_ju is not None:
         if golden_pos_tag == "VERB" and all(v.tag.person == "1per" for v in variants):
             tags = variants[0].tag.grammemes  # no better way to choose
-            new_tags = set(tags) - {'V-m'} | {'V-ju'}
-            word = isv_morph.parse(word)[0].inflect(new_tags).word
+            if verb_ju:
+                new_tags = set(tags) - {'V-m'} | {'V-ju'}
+            else:
+                new_tags = set(tags) - {'V-ju'} | {'V-m'}
+            word = inflect_carefully(isv_morph, variants[0], new_tags)[0]
+
+    if flavor['INFLECTIONS'].get('short-pronouns', True) == False:
+        if golden_pos_tag == "NPRO" and all("form-short" in v.tag for v in variants):
+            tags = variants[0].tag.grammemes  # no better way to choose
+            new_tags = set(tags) - {'form-short'} | {'form-regl'}
+            word = inflect_carefully(isv_morph, variants[0], new_tags)[0]
 
     if golden_pos_tag == "ADJF":
         variants = [variants[0]]  # no better way to choose
@@ -70,6 +87,8 @@ def __flavorise(word, golden_pos_tag, isv_morph, flavor, ju):
 
 
 def check_constraint(token, constraint):
+    if token.is_processed:
+        return False
     for single_constraint in constraint:
         if single_constraint[0] == "partOfSpeech":
             allowed_pos = [p.strip() for p in single_constraint[1].split(",")]
@@ -86,7 +105,6 @@ def check_constraint(token, constraint):
             this_approximate = "?" in single_constraint[1]
             this_value = single_constraint[1].strip("?!")
             unknown_genesis = (token.genesis != token.genesis) or not token.genesis
-            
             does_apply = (token.genesis == this_value) or (this_approximate and unknown_genesis)
             
             #if not unknown_genesis:
@@ -99,7 +117,8 @@ def check_constraint(token, constraint):
     return True
 
 
-def process_multireplacing(tokens_data, rules): 
+def process_multireplacing(tokens_data, rules, debug_indices={}): 
+    tokens_data = deepcopy(tokens_data)
     for rule in rules:
         #print(rule)
         name, typ = rule[:2]
@@ -128,8 +147,16 @@ def process_multireplacing(tokens_data, rules):
                     is_constraint_satisfied = check_constraint(tokens_data[i], constraint)
                     if not is_constraint_satisfied:
                         continue
+                    prev_words = list(tokens_data[i].text)
                     for j, w in enumerate(tokens_data[i].text):
                         tokens_data[i].text[j] = w.replace(a, b)
+
+                    has_notable_change = False
+                    if i in debug_indices:
+                        has_notable_change = set(tokens_data[i].text) != set(prev_words)
+                    if has_notable_change:
+                        print(name)
+                        print(prev_words, " => ", tokens_data[i].text)
 
         if typ == "r.regexp":
             if len(rule) == 4:
@@ -158,18 +185,15 @@ def process_multireplacing(tokens_data, rules):
                         cand = compiled.sub(one_subst, w)
                         candidates.append(cand)
                 tokens_data[i].text = list(set(candidates))
-                if len(tokens_data[i].text) > len(prev_words):
+                has_notable_change = len(tokens_data[i].text) > len(prev_words)
+                if i in debug_indices:
+                    has_notable_change = set(tokens_data[i].text) != set(prev_words)
+                if has_notable_change:
                     if tokens_data[i].POS == "PUNCT":
-                            raise NameError
+                        raise NameError
                     print(name)
                     print(prev_words, " => ", tokens_data[i].text)
             # print(name, len(candidates), len(set(candidates)))
             # words = choice(candidates)
 
-
-    final = "".join([
-        (t.text[0] if len(t.text) == 1 else f"[{'|'.join(t.text)}]") + t.space_after
-        for t in tokens_data
-    ])
-    return final
-
+    return tokens_data
