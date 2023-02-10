@@ -1,7 +1,7 @@
 from random import choice
 import lingua  # lingua-language-detector
 from hunspell import Hunspell  # cypyhunspell
-from .tokenizer import tokens_to_string
+from .tokenizer import tokens_to_string, all_token_text_variants
 from copy import deepcopy
 
 SLAVIC_LANGS = [
@@ -35,13 +35,15 @@ def get_conf(confs, lang):
 def filter_good_spellings(tokens, h):
     tokens = deepcopy(tokens)
     for token in tokens:
-        w = token.text
+        w = all_token_text_variants(token)
         if len(w) > 1:
             # print(w)
             known_words = [cand for cand in w if h.spell(cand)]
             # print(known_words)
             if len(known_words) != 0:
-                token.text = known_words
+                for variant in token.variants:
+                    variant.text_variants = [v for v in variant.text_variants if v in known_words]
+                token.variants = [v for v in token.variants if len(v.text_variants)]
                 # for cand in w:
                 #    print(f'    {h.suggest(cand)}')
     return tokens
@@ -51,14 +53,18 @@ def filter_lingua(tokens, detector, lang):
     LANG_OBJ = LANGS_DICT[lang.upper()]
     tokens = deepcopy(tokens)
     for token in tokens:
-        w = token.text
+        w = all_token_text_variants(token)
         if len(w) > 1:
             scores = {}
             for cand in w:
                 if cand:
                     confs = detector.compute_language_confidence_values(cand)
                     scores[cand] = get_conf(confs, LANG_OBJ)
-            token.text = [max(scores, key=lambda x: scores[x])]
+            # TODO: internals changed, update this
+            best_word = [max(scores, key=lambda x: scores[x])]
+            for variant in token.variants:
+                variant.text_variants = [v for v in variant.text_variants if v == best_word]
+            token.variants = [v for v in token.variants if len(v.text_variants)]
     return tokens
 
 def produce_string(tokens, hunspell_lang, iso_lang):

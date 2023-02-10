@@ -5,6 +5,7 @@ import pyparsing
 def build_parser():
     L = pyparsing.Literal
     S = Suppress
+    QS = quoted_string.setParseAction(pyparsing.removeQuotes)
 
     chars = pyparsing.unicode.alphas
 
@@ -26,9 +27,9 @@ def build_parser():
     )
 
     RULE_CASE =  L("(r) => r.lowerCase()") | L("(r) => r.restoreCase()")
-    RULE_REGEX = S("(r)") + S("=>") + "r.regexp" + S("(/") + ... + S("/") + S(",") + S('[') + Group(pyparsing.OneOrMore(quoted_string + Opt(",").suppress())) + S(']') + S(")")
+    RULE_REGEX = S("(r)") + S("=>") + "r.regexp" + S("(/") + ... + S("/") + S(",") + S('[') + Group(pyparsing.OneOrMore(QS + Opt(",").suppress())) + S(']') + S(")")
     RULE_MAP =   S("(r)") + S("=>") + "r.map" + S("(") + MAP_DESC + S(")")
-    ONE_PREDICATE = (S("p.") + Group(Word(chars) + S("(") + ... + S(")"))) | S("p")
+    ONE_PREDICATE = (S("p.") + Group(Word(chars) + S("(") + QS + S(")"))) | S("p")
 
     CONSTRAINT = S("(p)") + S("=>") + (
         ONE_PREDICATE + Opt(pyparsing.OneOrMore(
@@ -36,15 +37,15 @@ def build_parser():
         ))
     ) + Opt(",").suppress()
 
-    rule_content = quoted_string + S(",") + (RULE_REGEX | RULE_MAP | RULE_CASE) + Opt(",").suppress() + Opt(Group(CONSTRAINT)) + Opt(",").suppress()
+    rule_content = QS + S(",") + (RULE_REGEX | RULE_MAP | RULE_CASE) + Opt(",").suppress() + Opt(Group(CONSTRAINT)) + Opt(",").suppress()
 
     rule_expr = pyparsing.nestedExpr( '(', ')', content=rule_content)
 
 
     element = (
         Group(Suppress(".rule") + S("(") + rule_content + S(")"))("rule") | 
-        Group(Literal(".named") + S("(") + quoted_string  + S(")"))("named") | 
-        Group(Literal(".section") + S("(") + quoted_string  + S(")"))("section")
+        Group(Literal(".named") + S("(") + QS  + S(")"))("named") | 
+        Group(Literal(".section") + S("(") + QS  + S(")"))("section")
     )
 
     parser = S("multireplacer") + pyparsing.ZeroOrMore(element) + L(".build();")
