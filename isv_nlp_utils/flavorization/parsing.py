@@ -1,11 +1,12 @@
 from pyparsing import Group, Opt, Literal, Word, quoted_string, Suppress
 import pyparsing
 
+L = pyparsing.Literal
+S = Suppress
+QS = quoted_string.setParseAction(pyparsing.removeQuotes)
+
 
 def build_parser():
-    L = pyparsing.Literal
-    S = Suppress
-    QS = quoted_string.setParseAction(pyparsing.removeQuotes)
 
     chars = pyparsing.unicode.alphas
 
@@ -26,7 +27,7 @@ def build_parser():
         S("}")
     )
 
-    RULE_CASE =  L("(r) => r.lowerCase()") | L("(r) => r.restoreCase()")
+    RULE_SPECIAL =  L("(r) => r.lowerCase()") | L("(r) => r.restoreCase()") | L("(r) => r.classifyYers()")
     RULE_REGEX = S("(r)") + S("=>") + "r.regexp" + S("(/") + ... + S("/") + S(",") + S('[') + Group(pyparsing.OneOrMore(QS + Opt(",").suppress())) + S(']') + S(")")
     RULE_MAP =   S("(r)") + S("=>") + "r.map" + S("(") + MAP_DESC + S(")")
     ONE_PREDICATE = (S("p.") + Group(Word(chars) + S("(") + QS + S(")"))) | S("p")
@@ -37,7 +38,7 @@ def build_parser():
         ))
     ) + Opt(",").suppress()
 
-    rule_content = QS + S(",") + (RULE_REGEX | RULE_MAP | RULE_CASE) + Opt(",").suppress() + Opt(Group(CONSTRAINT)) + Opt(",").suppress()
+    rule_content = QS + S(",") + (RULE_REGEX | RULE_MAP | RULE_SPECIAL) + Opt(",").suppress() + Opt(Group(CONSTRAINT)) + Opt(",").suppress()
 
     rule_expr = pyparsing.nestedExpr( '(', ')', content=rule_content)
 
@@ -54,10 +55,17 @@ def build_parser():
 
 
 def parse_multireplacer_rules(file_path, parser=None):
+    CONST_RULE = S("const") + Word(pyparsing.alphanums) + S("=") + QS + Opt(";").suppress()
+
     with open(file_path, "r", encoding="utf8") as f:
         RULES = f.read().replace("t́", "ť").replace("d́", "ď")
     
+    declared_constants = {}
     for i, line in enumerate(RULES.split("\n")):
+        if "const" in line:
+            k, v = CONST_RULE.parseString(line)
+            declared_constants[k] = v
+
         if "multireplacer" in line and "import" not in line:
             break
     RULES = "\n".join(RULES.split("\n")[i:])
@@ -66,7 +74,7 @@ def parse_multireplacer_rules(file_path, parser=None):
 
     if not parser:
         parser = build_parser()
-    return parser.parseString(RULES)
+    return parser.parseString(RULES), declared_constants
 
 
 if __name__ == "__main__":

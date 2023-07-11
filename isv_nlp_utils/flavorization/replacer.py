@@ -127,24 +127,63 @@ def check_constraint(parse_variant, constraint):
     return True
 
 
-def process_multireplacing(tokens_data, rules, debug_indices=set()):
+def action_tolowercase(tokens_data):
+    for i in range(len(tokens_data)):
+        for j, v in enumerate(tokens_data[i].variants):
+            for k, w in enumerate(v.text_variants):
+                tokens_data[i].variants[j].text_variants[k] = w.lower()
+
+
+def action_restorecase(tokens_data):
+    for i in range(len(tokens_data)):
+        cap = tokens_data[i].capitalization
+        if cap:
+            for j, v in enumerate(tokens_data[i].variants):
+                for k, w in enumerate(v.text_variants):
+                    tokens_data[i].variants[j].text_variants[k] = w.title() if cap == "title" else w.upper()
+
+
+VOWELS = 'åaeiouyęěǫъь'
+CONSONANTS = 'bcdgjklmnprstvxzčďľňřśšťž'
+
+
+def action_classify_yers(tokens_data):
+    for i in range(len(tokens_data)):
+        for j, v in enumerate(tokens_data[i].variants):
+            for k, w in enumerate(v.text_variants):
+                tokens_data[i].variants[j].text_variants[k] = classify_yers(w)
+
+
+def classify_yers(word):
+    # See: https://en.wikipedia.org/wiki/Havlík%27s_law
+    vowels_pos = [i for i, s in enumerate(word) if s in VOWELS]
+    is_weak = True
+    classified_vowels = []
+    for i in reversed(vowels_pos):
+        vowel = word[i]
+        if vowel not in ["ь", "ъ"]:
+            is_weak = True
+        else:
+            vowel = vowel if is_weak else vowel.upper()
+            is_weak = not is_weak
+        classified_vowels.append(vowel)
+    word_as_arr = list(word)
+    for i, v in zip(vowels_pos, reversed(classified_vowels)):
+        word_as_arr[i] = v
+    return "".join(word_as_arr)
+
+
+def process_multireplacing(tokens_data, rules, declared_constants=dict(), debug_indices=set()):
     tokens_data = deepcopy(tokens_data)
     for rule in rules:
         #print(rule)
         name, typ = rule[:2]
         if "lowerCase" in typ:
-            for i in range(len(tokens_data)):
-                for j, v in enumerate(tokens_data[i].variants):
-                    for k, w in enumerate(v.text_variants):
-                        tokens_data[i].variants[j].text_variants[k] = w.lower()
+            action_tolowercase(tokens_data)
         if "restoreCase" in typ:
-            for i in range(len(tokens_data)):
-                cap = tokens_data[i].capitalization
-                if cap:
-                    for j, v in enumerate(tokens_data[i].variants):
-                        for k, w in enumerate(v.text_variants):
-                            tokens_data[i].variants[j].text_variants[k] = w.title() if cap == "title" else w.upper()
-
+            action_restorecase(tokens_data)
+        if "classifyYers" in typ:
+            action_classify_yers(tokens_data)
         if typ == "r.map":
             if len(rule) == 3:
                 mapping = rule[2]
@@ -179,6 +218,7 @@ def process_multireplacing(tokens_data, rules, debug_indices=set()):
             else:
                 name, typ, pattern, subst, constraint = rule
                 constraint = [(con_type, con_cond) for con_type, con_cond in constraint.asList()]
+            pattern = pattern.format(**declared_constants)
             subst = subst.asList()
             subst = [s.replace("$", "\\") for s in subst]
             pattern = pattern.replace("\x08", "$")
